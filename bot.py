@@ -1,6 +1,9 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ContextTypes
+import asyncio
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, ConversationHandler, ContextTypes
+)
 
 # Logging
 logging.basicConfig(
@@ -28,7 +31,7 @@ async def ask_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Kitob o\'lchamini tanlang:', reply_markup=InlineKeyboardMarkup(keyboard))
     return ASK_SIZE
 
-# A4 yoki A5 tanlash
+# O'lcham tanlash
 async def ask_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -79,7 +82,6 @@ async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_price = price * copies
     user_data[update.effective_user.id]['total_price'] = total_price
 
-    # Buyurtma ma'lumotlarini ko'rsatish
     msg = (
         f"📄 Sahifalar soni: {pages}\n"
         f"📐 O'lcham: {size}\n"
@@ -132,7 +134,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main
 async def main():
-    app = ApplicationBuilder().token("7591946515:AAFFMEgpPLkwRxADRCTlztIh0GxDdc1qLC8").build()
+    app = Application.builder().token("7591946515:AAFFMEgpPLkwRxADRCTlztIh0GxDdc1qLC8").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -151,12 +153,10 @@ async def main():
     await app.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
+    import nest_asyncio
+    nest_asyncio.apply()
 
     try:
-        asyncio.run(main())
+        asyncio.get_running_loop().run_until_complete(main())
     except RuntimeError:
-        # Agar asyncio.run xato bersa (Railwayda), faqat main() ni await qilamiz
-        loop = asyncio.get_event_loop()
-        loop.create_task(main())
-        loop.run_forever()
+        asyncio.run(main())
