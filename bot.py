@@ -139,7 +139,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main
 async def main():
-    app = ApplicationBuilder().token("SENING_BOT_TOKENING").build()
+    app = ApplicationBuilder().token("7591946515:AAFFMEgpPLkwRxADRCTlztIh0GxDdc1qLC8G").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
