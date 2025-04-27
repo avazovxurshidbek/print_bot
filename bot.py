@@ -6,7 +6,7 @@ from telegram.ext import (
     CallbackQueryHandler, ConversationHandler, ContextTypes
 )
 
-# Logging
+# Logging sozlash
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -15,62 +15,59 @@ logging.basicConfig(
 # Bosqichlar
 ASK_PAGES, ASK_SIZE, ASK_COLOR, ASK_COPIES, ASK_FILE, CONFIRM_ORDER = range(6)
 
-# User ma'lumotlari
-user_data = {}
-
 # Start komandasi
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Assalomu alaykum! Kitob sahifa sonini kiriting:")
+    await update.message.reply_text("Assalomu alaykum! 📚 Kitob sahifa sonini kiriting:")
     return ASK_PAGES
 
-# Sahifa soni
+# Sahifa sonini olish
 async def ask_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data[update.effective_user.id] = {'pages': int(update.message.text)}
+    context.user_data['pages'] = int(update.message.text)
     keyboard = [
         [InlineKeyboardButton("A4", callback_data='A4'), InlineKeyboardButton("A5", callback_data='A5')]
     ]
     await update.message.reply_text('Kitob o\'lchamini tanlang:', reply_markup=InlineKeyboardMarkup(keyboard))
     return ASK_SIZE
 
-# O'lcham
+# O'lchamni olish
 async def ask_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_data[query.from_user.id]['size'] = query.data
+    context.user_data['size'] = query.data
     keyboard = [
         [InlineKeyboardButton("Oq qora", callback_data='black_white'), InlineKeyboardButton("Rangli", callback_data='color')]
     ]
     await query.edit_message_text('Chop etish turini tanlang:', reply_markup=InlineKeyboardMarkup(keyboard))
     return ASK_COLOR
 
-# Rang
+# Rangni olish
 async def ask_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_data[query.from_user.id]['color'] = query.data
+    context.user_data['color'] = query.data
     await query.message.reply_text('Nechta nusxa kerak? Sonini yozib yuboring:')
     return ASK_COPIES
 
-# Nusxa soni
+# Nusxa sonini olish
 async def ask_copies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_data[update.effective_user.id]['copies'] = int(update.message.text)
-    await update.message.reply_text('Kitobning PDF faylini yuboring:')
+    context.user_data['copies'] = int(update.message.text)
+    await update.message.reply_text('Endi kitobning PDF faylini yuboring 📄:')
     return ASK_FILE
 
-# Faylni qabul qilish
+# PDF faylni qabul qilish
 async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
-    if not document.mime_type == 'application/pdf':
-        await update.message.reply_text('Iltimos, faqat PDF fayl yuboring.')
+
+    if document.mime_type != 'application/pdf':
+        await update.message.reply_text('⚠️ Iltimos, faqat PDF formatdagi fayl yuboring.')
         return ASK_FILE
 
-    user_data[update.effective_user.id]['file'] = document
+    context.user_data['file_id'] = document.file_id
 
-    info = user_data[update.effective_user.id]
-    pages = info['pages']
-    size = info['size']
-    color = info['color']
-    copies = info['copies']
+    pages = context.user_data['pages']
+    size = context.user_data['size']
+    color = context.user_data['color']
+    copies = context.user_data['copies']
 
     # Narx hisoblash
     if size == 'A5' and color == 'black_white':
@@ -85,50 +82,56 @@ async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = 0
 
     total_price = price * copies
-    user_data[update.effective_user.id]['total_price'] = total_price
+    context.user_data['total_price'] = total_price
 
-    # Buyurtma ma'lumotlari
     msg = (
         f"📄 Sahifalar soni: {pages}\n"
         f"📐 O'lcham: {size}\n"
         f"🎨 Chop turi: {'Rangli' if color == 'color' else 'Oq qora'}\n"
         f"📚 Nusxalar soni: {copies}\n"
-        f"💰 Umumiy narx: {total_price} so'm\n\n"
-        "Buyurtma berishni xohlaysizmi?"
+        f"💰 Umumiy narx: {total_price:,} so'm\n\n"
+        "Buyurtmani tasdiqlaysizmi?"
     )
 
     keyboard = [
-        [InlineKeyboardButton("✅ Buyurtma berish", callback_data='confirm')],
+        [InlineKeyboardButton("✅ Ha, tasdiqlayman", callback_data='confirm')],
         [InlineKeyboardButton("❌ Bekor qilish", callback_data='cancel')]
     ]
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(keyboard))
 
     return CONFIRM_ORDER
 
-# Buyurtma tasdiqlash
+# Buyurtma tasdiqlash yoki bekor qilish
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     if query.data == 'confirm':
-        info = user_data[query.from_user.id]
-        file = info['file']
+        file_id = context.user_data['file_id']
+        pages = context.user_data['pages']
+        size = context.user_data['size']
+        color = context.user_data['color']
+        copies = context.user_data['copies']
+        total_price = context.user_data['total_price']
 
         text = (
             f"✅ Yangi buyurtma!\n\n"
-            f"👤 Foydalanuvchi: @{query.from_user.username}\n"
-            f"📄 Sahifa: {info['pages']}\n"
-            f"📐 O'lcham: {info['size']}\n"
-            f"🎨 Chop turi: {'Rangli' if info['color'] == 'color' else 'Oq qora'}\n"
-            f"📚 Nusxa soni: {info['copies']}\n"
-            f"💵 Umumiy narx: {info['total_price']} so'm"
+            f"👤 Foydalanuvchi: @{query.from_user.username or query.from_user.id}\n"
+            f"📄 Sahifa soni: {pages}\n"
+            f"📐 O'lcham: {size}\n"
+            f"🎨 Chop turi: {'Rangli' if color == 'color' else 'Oq qora'}\n"
+            f"📚 Nusxa soni: {copies}\n"
+            f"💰 Umumiy narx: {total_price:,} so'm"
         )
 
-        await context.bot.send_message(chat_id='@xurshid3221', text=text)
-        await context.bot.send_document(chat_id='@xurshid3221', document=file.file_id, caption="📎 Kitob PDF fayli")
-        await query.edit_message_text('Buyurtmangiz qabul qilindi! ✅')
+        # ADMIN CHAT ID NI TO'G'RI QO'Y!!
+        admin_chat_id = -1002124583221  # Misol uchun, to'g'ri ID ber
+
+        await context.bot.send_message(chat_id=admin_chat_id, text=text)
+        await context.bot.send_document(chat_id=admin_chat_id, document=file_id, caption="📎 Kitob PDF fayli")
+        await query.edit_message_text('✅ Buyurtmangiz qabul qilindi!')
     else:
-        await query.edit_message_text('Buyurtma bekor qilindi.')
+        await query.edit_message_text('❌ Buyurtma bekor qilindi.')
 
     return ConversationHandler.END
 
@@ -137,9 +140,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Buyurtma bekor qilindi.')
     return ConversationHandler.END
 
-# Main
+# Main ishga tushirish
 async def main():
-    app = ApplicationBuilder().token("7591946515:AAFFMEgpPLkwRxADRCTlztIh0GxDdc1qLC8N").build()
+    app = ApplicationBuilder().token("BOT_TOKENINGNI_SHU_YERGA_QO'Y").build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -148,13 +151,14 @@ async def main():
             ASK_SIZE: [CallbackQueryHandler(ask_size)],
             ASK_COLOR: [CallbackQueryHandler(ask_color)],
             ASK_COPIES: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_copies)],
-            ASK_FILE: [MessageHandler(filters.Document.ALL, ask_file)],
+            ASK_FILE: [MessageHandler(filters.Document.PDF, ask_file)],
             CONFIRM_ORDER: [CallbackQueryHandler(confirm_order)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
 
     app.add_handler(conv_handler)
+
     await app.run_polling()
 
 if __name__ == '__main__':
