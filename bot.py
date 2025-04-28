@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, filters,
@@ -22,6 +23,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Assalomu alaykum! Kitob sahifa sonini kiriting:")
     return ASK_PAGES
 
+# Sahifa soni
 async def ask_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[update.effective_user.id] = {'pages': int(update.message.text)}
     keyboard = [
@@ -30,6 +32,7 @@ async def ask_pages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Kitob o\'lchamini tanlang:', reply_markup=InlineKeyboardMarkup(keyboard))
     return ASK_SIZE
 
+# O'lcham
 async def ask_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -40,6 +43,7 @@ async def ask_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text('Chop etish turini tanlang:', reply_markup=InlineKeyboardMarkup(keyboard))
     return ASK_COLOR
 
+# Rang
 async def ask_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -47,11 +51,13 @@ async def ask_color(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text('Nechta nusxa kerak? Sonini yozib yuboring:')
     return ASK_COPIES
 
+# Nusxa soni
 async def ask_copies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[update.effective_user.id]['copies'] = int(update.message.text)
     await update.message.reply_text('Kitobning PDF faylini yuboring:')
     return ASK_FILE
 
+# Faylni qabul qilish
 async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
     if not document.mime_type == 'application/pdf':
@@ -81,7 +87,6 @@ async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_price = price * copies
     user_data[update.effective_user.id]['total_price'] = total_price
 
-    # Buyurtma ma'lumotlari
     msg = (
         f"📄 Sahifalar soni: {pages}\n"
         f"📐 O'lcham: {size}\n"
@@ -99,6 +104,7 @@ async def ask_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return CONFIRM_ORDER
 
+# Buyurtma tasdiqlash
 async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -125,12 +131,13 @@ async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
+# Bekor qilish
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text('Buyurtma bekor qilindi.')
     return ConversationHandler.END
 
-# Main - Asyncio.run kerak emas!
-def main():
+# Main
+async def main():
     app = ApplicationBuilder().token("7288489399:AAEI5DeLR1wdYnAw0DGgQPgjggZoLr41ZA4").build()
 
     conv_handler = ConversationHandler(
@@ -140,15 +147,15 @@ def main():
             ASK_SIZE: [CallbackQueryHandler(ask_size)],
             ASK_COLOR: [CallbackQueryHandler(ask_color)],
             ASK_COPIES: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_copies)],
-            ASK_FILE: [MessageHandler(filters.Document.ALL, ask_file)],
+            ASK_FILE: [MessageHandler(filters.Document.PDF, ask_file)],
             CONFIRM_ORDER: [CallbackQueryHandler(confirm_order)],
         },
-        fallbacks=[CommandHandler('cancel', cancel)],
-        per_message=True
+        fallbacks=[CommandHandler('cancel', cancel)]
+        # per_message=False — bu default holat, shuning uchun hech narsa yozmasak ham bo'ladi
     )
 
     app.add_handler(conv_handler)
-    app.run_polling()
+    await app.run_polling()
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
